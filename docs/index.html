@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SolPredict Arena — Play the SOL price on Solana devnet</title>
+<meta name="description" content="A parimutuel prediction market on Solana devnet. Bet real devnet SOL on the SOL price, settle on-chain, audit every transaction. Built for the Indie.fun Hackathon.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #121826; --panel2: #0f1522; --line: #1f2a44;
+    --text: #e8edf7; --muted: #8b98b3; --green: #14f195; --purple: #9945ff;
+    --red: #ff5d7a; --amber: #ffb454; --blue: #4da3ff; --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5; }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 0 18px 60px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 20px 0 8px; }
+  .brand { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+  .brand span { background: linear-gradient(90deg, var(--green), var(--purple)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .badge.devnet { color: var(--amber); border-color: #4a3a1a; }
+  .badge.demo { color: var(--purple); border-color: #3d2a63; }
+  .ticker { font-size: 15px; font-weight: 700; }
+  .ticker small { color: var(--muted); font-weight: 500; }
+  .btn { appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 10px; padding: 9px 16px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .btn:hover { border-color: var(--blue); }
+  .btn.primary { background: linear-gradient(90deg, var(--green), #19c37d); color: #04140b; border: none; }
+  .btn.yes { background: #0d2b1d; border-color: #14532d; color: var(--green); }
+  .btn.no { background: #2b1020; border-color: #5b1a2e; color: var(--red); }
+  .btn.ghost { background: transparent; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .hero { background: linear-gradient(135deg, #101a30, #1a1030); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px 24px; margin: 16px 0 22px; }
+  .hero h1 { margin: 0 0 8px; font-size: 30px; line-height: 1.15; letter-spacing: -0.5px; }
+  .hero p { margin: 0; color: var(--muted); max-width: 72ch; }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 18px; }
+  .step { background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 13.5px; }
+  .step b { display: block; margin-bottom: 3px; }
+  .step span { color: var(--muted); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 18px 0 12px; }
+  .toolbar h2 { margin: 0; font-size: 19px; flex: 1; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; line-height: 1.3; }
+  .meta { color: var(--muted); font-size: 13px; margin: 2px 0; }
+  .meta code { color: var(--text); font-size: 12px; }
+  .odds { height: 10px; border-radius: 999px; overflow: hidden; display: flex; margin: 12px 0 4px; background: #2b1020; }
+  .odds .yesbar { background: var(--green); }
+  .odds-labels { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
+  .odds-labels b { color: var(--text); }
+  .betrow { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+  .amt { display: flex; gap: 6px; flex-wrap: wrap; }
+  .amt button { border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
+  .amt button.sel { border-color: var(--green); color: var(--green); font-weight: 700; }
+  .status { font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
+  .status.open { background: #0d2b1d; color: var(--green); }
+  .status.closed { background: #2b2108; color: var(--amber); }
+  .status.resolved { background: #101d33; color: var(--blue); }
+  .status.settled { background: #1a1030; color: #c084fc; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-top: 14px; }
+  .panel h2 { margin: 0 0 10px; font-size: 18px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input, select { width: 100%; background: var(--panel2); border: 1px solid var(--line); color: var(--text); border-radius: 9px; padding: 9px 11px; font-size: 14px; }
+  .log { font-size: 13px; }
+  .log li { margin: 6px 0; word-break: break-all; }
+  .log code { color: var(--muted); font-size: 12px; }
+  .note { background: #171208; border: 1px solid #4a3a1a; color: #ffd9a0; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; margin-top: 14px; }
+  .note b { color: var(--amber); }
+  .footer { color: var(--muted); font-size: 13px; margin-top: 26px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .hidden { display: none !important; }
+  #toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #1c2740; border: 1px solid var(--blue); color: var(--text); padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: 90vw; z-index: 50; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">🎯 SolPredict <span>Arena</span></div>
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <span class="ticker" id="ticker">SOL <span id="solPrice">…</span> <small>USD · CoinGecko</small></span>
+      <span class="badge devnet">SOLANA DEVNET</span>
+      <span class="badge demo hidden" id="demoBadge">DEMO MODE — SIMULATED</span>
+      <button class="btn" id="demoToggle">Try demo mode</button>
+      <button class="btn primary" id="walletBtn">Connect Phantom</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h1>Bet on the SOL price. Settle on-chain. Audit everything.</h1>
+    <p>A parimutuel prediction market on Solana devnet. Every bet is a real SOL transfer to a market vault with an on-chain memo — winners split the whole pool, no house fee, and every transaction links to Solscan. Built for the <b>Indie.fun Hackathon</b> (Superteam Earn).</p>
+    <div class="steps">
+      <div class="step"><b>1 · Connect</b><span>Phantom on devnet, or use demo mode — no wallet needed.</span></div>
+      <div class="step"><b>2 · Bet</b><span>Pick YES or NO. Your SOL goes to the market vault with a memo.</span></div>
+      <div class="step"><b>3 · Resolve</b><span>After the deadline the market settles against the SOL/USD price.</span></div>
+      <div class="step"><b>4 · Get paid</b><span>Winners split the entire pool pro-rata. Every payout is on-chain.</span></div>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <h2>Open markets</h2>
+    <button class="btn" id="refreshBtn">↻ Refresh balances</button>
+    <button class="btn primary" id="newMarketBtn">+ Create market</button>
+  </div>
+  <div class="grid" id="markets"></div>
+
+  <section class="panel hidden" id="createPanel">
+    <h2>Create a market</h2>
+    <p class="meta">A fresh vault keypair is generated in your browser for the market. You hold the vault key — you settle it after the deadline. Devnet only, play money.</p>
+    <label>Question (10–140 characters)</label>
+    <input id="fQuestion" maxlength="140" placeholder="e.g. Will SOL close above $80 by Dec 20, 2026?">
+    <label>Target price (USD)</label>
+    <input id="fTarget" type="number" min="0.01" step="0.01" value="80">
+    <label>Direction</label>
+    <select id="fDirection"><option value="above">SOL closes ABOVE target → YES wins</option><option value="below">SOL closes BELOW target → YES wins</option></select>
+    <label>Deadline</label>
+    <input id="fDeadline" type="datetime-local">
+    <button class="btn primary" id="createBtn" style="margin-top:14px;">Create market</button>
+  </section>
+
+  <section class="panel">
+    <h2>Activity</h2>
+    <ul class="log" id="activity"><li>No activity yet — place a bet or create a market.</li></ul>
+  </section>
+
+  <section class="note">
+    <b>How the vault works (read this).</b> Each market has its own vault address. Bets are plain SOL transfers to the vault plus a memo
+    (<code class="mono">ARENA:v1|bet|&lt;market&gt;|YES|NO</code>) — anyone can audit a market on Solscan. The vault key lives in <i>your</i> browser
+    (localStorage) because this is a devnet demo with no backend; after the deadline, the vault holder clicks Settle and every winner is paid from the vault.
+    The vault key can be exported and published after settlement so anyone can verify the vault emptied exactly. <b>Devnet only — SOL here is free testnet money with no value.</b>
+  </section>
+
+  <p class="footer">
+    SolPredict Arena · Indie.fun Hackathon entry ·
+    <a href="https://github.com/dimasamirul1899-afk/indiefun-prediction-arena" target="_blank" rel="noopener">GitHub</a> ·
+    <a href="https://superteam.fun/earn/listing/indiefun-hackathon-10kprize" target="_blank" rel="noopener">Superteam Earn listing</a> ·
+    <a href="https://explorer.solana.com/?cluster=devnet" target="_blank" rel="noopener">Solana Explorer (devnet)</a>
+  </p>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<script>
+// Load @solana/web3.js from CDN with a fallback. Demo mode works without it.
+(function loadWeb3() {
+  const urls = [
+    'https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js',
+    'https://cdn.jsdelivr.net/npm/@solana/web3.js@1.98.0/lib/index.iife.min.js'
+  ];
+  function tryLoad(i) {
+    if (i >= urls.length) { window.__web3Failed = true; window.dispatchEvent(new Event('web3-ready')); return; }
+    const s = document.createElement('script');
+    s.src = urls[i];
+    s.onload = () => window.dispatchEvent(new Event('web3-ready'));
+    s.onerror = () => tryLoad(i + 1);
+    document.head.appendChild(s);
+  }
+  tryLoad(0);
+})();
+</script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
